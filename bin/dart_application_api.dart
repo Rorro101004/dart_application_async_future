@@ -3,64 +3,108 @@ import 'package:dart_application_api/dart_application_api.dart'
 import 'package:http/http.dart' as http;
 import 'package:http/retry.dart';
 import 'dart:convert';
+import 'dart:io';
 
-const String baseUrl = 'https://swapi.dev/api';
+const String baseUrl = 'https://swapi.tech/api';
 
 void main() async {
-  // [NUEVO] 1. Creamos el cliente con reintentos
-  // Esto crea un cliente que intentará hasta 3 veces (por defecto) si falla la conexión
+  // 1. Iniciamos el cliente una sola vez
+
   final client = RetryClient(http.Client());
-
   try {
-    print('--- INICIANDO CONSULTAS STAR WARS CON RETRY ---');
+    bool continuar = true;
 
-    // Pasamos el cliente a las funciones
-    await listarPlanetas(client);
+    while (continuar) {
+      print('\n==========================================');
+      print('       STAR WARS API MENU ');
+      print('==========================================');
+      print('1. Listar Planetas');
+      print('2. Ver habitantes de un planeta');
+      print('3. Ver planeta de un personaje');
+      print('4. Ver película de un vehículo');
+      print('5. Salir');
+      print('------------------------------------------');
+      stdout.write('Elige una opción (1-5): ');
 
-    print('\n-----------------------------------');
-    //await listarHabitantesPorPlaneta(client, 1);
+      // Leemos lo que escribe el usuario
+      String? opcion = stdin.readLineSync();
 
-    print('\n-----------------------------------');
-    //await infoPlanetaDePersonaje(client, 1);
+      print('\n'); // Salto de línea estético
 
-    print('\n-----------------------------------');
-    
-    //await infoPeliculaDeVehiculo(client, 4);
+      // Decidimos qué hacer
+      switch (opcion) {
+        case '1':
+          await listarPlanetas(client);
+          break;
+
+        case '2':
+          int? id = pedirId('Introduce el ID del planeta: ');
+          if (id != null) await listarHabitantesPorPlaneta(client, id);
+          break;
+
+        case '3':
+          int? id = pedirId('Introduce el ID del personaje: ');
+          if (id != null) await infoPlanetaDePersonaje(client, id);
+          break;
+
+        case '4':
+          int? id = pedirId('Introduce el ID del vehículo: ');
+          if (id != null) await infoPeliculaDeVehiculo(client, id);
+          break;
+
+        case '5':
+          continuar = false;
+          break;
+
+        default:
+          print(' Opción no válida. Inténtalo de nuevo.');
+      }
+
+      if (continuar) {
+        print('\nPresiona ENTER para volver al menú');
+        stdin.readLineSync();
+      }
+    }
   } finally {
-    // [NUEVO] 4. Es MUY importante cerrar el cliente al terminar
+    // Cerramos el cliente al salir del bucle
     client.close();
   }
 }
 
-// [NUEVO] Modificamos _fetchData para recibir el 'client'
+int? pedirId(String mensaje) {
+  print('$mensaje ');
+  String? entrada = stdin.readLineSync();
+  int? id = int.tryParse(entrada ?? '');
+
+  if (id == null) {
+    print('Error: Debes introducir un número válido.');
+  }
+  return id;
+}
+
 Future<dynamic> _fetchData(http.Client client, String url) async {
   try {
-    // [NUEVO] Usamos 'client.get' en vez de 'http.get'
     final response = await client.get(Uri.parse(url));
-
     if (response.statusCode == 200) {
       return jsonDecode(response.body);
     } else {
-      print('Error: Código ${response.statusCode} en $url');
+      print(' Error: Código ${response.statusCode} en $url');
       return null;
     }
   } catch (e) {
-    print('Error de conexión tras varios intentos: $e');
+    print(' Error de conexión: $e');
     return null;
   }
 }
 
-// ---- MÉTODOS ACTUALIZADOS PARA ACEPTAR EL CLIENTE ----
-
 Future<void> listarPlanetas(http.Client client) async {
-  print('A. BUSCANDO PLANETAS...');
-  // Pasamos el cliente a _fetchData
+  print('--- BUSCANDO PLANETAS ---');
   var data = await _fetchData(client, '$baseUrl/planets/');
-
   if (data != null) {
     List<dynamic> results = data['results'];
-    for (var planeta in results.take(3)) {
-      print('> Planeta: ${planeta['name']}');
+    for (var planeta in results.take(10)) {
+      // Muestro 5 para que se vea mejor
+      print('🌍Planeta: ${planeta['name']}');
     }
   }
 }
@@ -69,46 +113,59 @@ Future<void> listarHabitantesPorPlaneta(
   http.Client client,
   int idPlaneta,
 ) async {
-  print('B. BUSCANDO HABITANTES...');
+  print('--- BUSCANDO HABITANTES DEL PLANETA $idPlaneta ---');
   var planeta = await _fetchData(client, '$baseUrl/planets/$idPlaneta/');
 
   if (planeta != null) {
+    print('Planeta: ${planeta['name']}');
     List<dynamic> residentesUrls = planeta['residents'];
-    for (var url in residentesUrls.take(3)) {
-      var residente = await _fetchData(client, url); // Pasamos cliente
+
+    if (residentesUrls.isEmpty) {
+      print('(Sin habitantes registrados)');
+      return;
+    }
+    //Limitamos a 5 residentes
+    for (var url in residentesUrls.take(5)) {
+      var residente = await _fetchData(client, url);
       if (residente != null) {
-        print('> Residente: ${residente['name']}');
+        print('👤 Residente: ${residente['name']}');
       }
     }
   }
 }
 
 Future<void> infoPlanetaDePersonaje(http.Client client, int idPersonaje) async {
-  print('C. BUSCANDO PLANETA DE PERSONAJE...');
+  print('--- BUSCANDO PLANETA DEL PERSONAJE $idPersonaje ---');
   var personaje = await _fetchData(client, '$baseUrl/people/$idPersonaje/');
 
   if (personaje != null) {
-    var planeta = await _fetchData(
-      client,
-      personaje['homeworld'],
-    ); // Pasamos cliente
-    if (planeta != null) {
-      print('> Mundo Natal: ${planeta['name']}');
+    print('Personaje: ${personaje['name']}');
+    if (personaje['homeworld'] != null) {
+      var planeta = await _fetchData(client, personaje['homeworld']);
+      if (planeta != null) {
+        print('🏠 Mundo Natal: ${planeta['name']}');
+      }
     }
   }
 }
 
 Future<void> infoPeliculaDeVehiculo(http.Client client, int idVehiculo) async {
-  print('D. BUSCANDO PELÍCULA DE VEHÍCULO...');
+  print('--- BUSCANDO PELÍCULA DEL VEHÍCULO $idVehiculo ---');
   var vehiculo = await _fetchData(client, '$baseUrl/vehicles/$idVehiculo/');
 
   if (vehiculo != null) {
+    print('Vehículo: ${vehiculo['name']}');
     List<dynamic> filmsUrls = vehiculo['films'];
+
     if (filmsUrls.isNotEmpty) {
-      var pelicula = await _fetchData(client, filmsUrls[0]); // Pasamos cliente
+      var pelicula = await _fetchData(client, filmsUrls[0]);
       if (pelicula != null) {
-        print('> Película: ${pelicula['title']}');
+        print(
+          '🎬 Película: ${pelicula['title']} (Episodio ${pelicula['episode_id']})',
+        );
       }
+    } else {
+      print('   (No aparece en ninguna película registrada)');
     }
   }
 }
