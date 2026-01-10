@@ -8,34 +8,81 @@ Paso 1.  **Envío de petición** El cliente envía la petición y recibe inmedia
 Paso 2.  **Espera no bloqueante:** Mientras el servidor procesa la solicitud, la app sigue funcionando (responde a clics, animaciones, etc.).
 Paso 3.  **Resolución:** Cuando llegan los datos, utilizamos `await` para retomar el flujo y procesar la respuesta, o `try-catch` para manejar errores.
 
-### Ejemplo 1: Petición GET (Conexión con la API)
-Realizamos una petición GET a la API de Star Wars. El código verifica que el servidor responda correctamente (código 200) y utiliza jsonDecode para transformar el texto de respuesta en un Mapa de Dart, permitiendo así acceder a los datos.
 
+### Ejemplo 1: Petición GET (Consultar información)
+Este método se utiliza para solicitar y recibir datos del servidor, devolviendonos en este caso un dynamic, ya que puede devolver null o un Jsoncode. Es una operación en la que pedimos información pero no cambiamos nada en la base de datos .
 ```dart
 import 'package:http/http.dart' as http;
 import 'dart:convert'; 
 
-Future<dynamic> obtenerDatosStarWars() async {
-  // 1. Definimos la URL base
-  final urlStarWars = 'https://swapi.dev/api/people/1/'; 
+Future<dynamic> realizarPeticion(http.Client client, String url) async {
+  
+  print('Solicitando datos a: $url ...');
 
   try {
-    // 2. Realizamos la petición con el await para no bloquear la aplicación
-    final response = await http.get(Uri.parse(urlStarWars));
+    final response = await client.get(Uri.parse(url)); //Esperamos la respuesta usando el await
 
-    // 3. Verificamos el código de estado HTTP
+    print(' El servidor respondió con código: ${response.statusCode}');
+
     if (response.statusCode == 200) {
-      // 4. Éxito: Parseamos el JSON de texto a un mapa de Dart
-      print('Dato encontrado: ${response.body}');
+      // El servidor nos dio los datos
+      print('Decodificando JSON...');
       return jsonDecode(response.body);
+
+    } else if (response.statusCode == 404) {
+      //  Recurso no encontrado
+      print('Lo que buscas no existe en el servidor.');
+      return null;
+
     } else {
-      // 5. Error del servidor (ej. 404 No Encontrado)
-      print('Error del servidor: Código ${response.statusCode}');
+      print('Ocurrió un problema inesperado: ${response.statusCode}');
       return null;
     }
+
   } catch (e) {
-    // 6. Error de conexión 
-    print('Error crítico de conexión: $e');
+    print('No se pudo contactar con el servidor.');
+    print('  Detalle: $e');
     return null;
   }
 }
+```
+### Ejemplo 2: Petición GET con filtros (Búsqueda)
+Este método es una variante del GET donde, en lugar de pedir un recurso exacto por su ID, enviamos parámetros de búsqueda en la URL para filtrar la información.
+
+```dart
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
+// Esta función imprime los resultados encontrados
+Future<void> buscarPersonaje(http.Client client, String nombreBusqueda) async {
+  
+  // En este caso parseamos la url para usarla, no la pedimos por parametro
+  final url = Uri.parse('https://swapi.dev/api/people/?search=$nombreBusqueda');
+
+  print('Rastreando a "$nombreBusqueda"');
+
+  try {
+    final response = await client.get(url);
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      int encontrados = data['count'];
+
+      if (encontrados > 0) {
+        print('Se han encontrado $encontrados coincidencias:');
+        for (var personaje in data['results']) {
+          print('   - ${personaje['name']} (Nació en: ${personaje['birth_year']})');
+        }
+      } else {
+        print(' Nadie se llama así.');
+      }
+
+    } else {
+      print(' Error del servidor: ${response.statusCode}');
+    }
+
+  } catch (e) {
+    print('Error de conexión: $e');
+  }
+}
+```
