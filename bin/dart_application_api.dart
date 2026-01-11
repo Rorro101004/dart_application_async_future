@@ -8,7 +8,6 @@ import 'dart:io';
 const String baseUrl = 'https://swapi.tech/api';
 
 void main() async {
-  // 1. Iniciamos el cliente una sola vez
 
   final client = RetryClient(http.Client());
   try {
@@ -23,7 +22,7 @@ void main() async {
       print('3. Ver planeta de un personaje');
       print('4. Ver película de un vehículo');
       print('5. Salir');
-      print('------------------------------------------');
+      print('==========================================');
       stdout.write('Elige una opción (1-5): ');
 
       // Leemos lo que escribe el usuario
@@ -103,7 +102,6 @@ Future<void> listarPlanetas(http.Client client) async {
   if (data != null) {
     List<dynamic> results = data['results'];
     for (var planeta in results.take(10)) {
-      // Muestro 5 para que se vea mejor
       print('Planeta: ${planeta['name']}');
     }
   }
@@ -121,14 +119,13 @@ Future<void> listarHabitantesPorPlaneta(
     List<dynamic> residentesUrls = planeta['residents'];
 
     if (residentesUrls.isEmpty) {
-      print('(Sin habitantes registrados)');
+      print('Sin habitantes registrados');
       return;
     }
-    //Limitamos a 5 residentes
     for (var url in residentesUrls.take(5)) {
       var residente = await conexion(client, url);
       if (residente != null) {
-        print('👤 Residente: ${residente['name']}');
+        print('Residente: ${residente['name']}');
       }
     }
   }
@@ -165,7 +162,7 @@ Future<void> infoPeliculaDeVehiculo(http.Client client, int idVehiculo) async {
         );
       }
     } else {
-      print('   (No aparece en ninguna película registrada)');
+      print('No aparece en ninguna película registrada');
     }
   }
 }
