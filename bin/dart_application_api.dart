@@ -82,7 +82,7 @@ int? pedirId(String mensaje) {
   return id;
 }
 
-Future<dynamic> _fetchData(http.Client client, String url) async {
+Future<dynamic> conexion(http.Client client, String url) async {
   try {
     final response = await client.get(Uri.parse(url));
     if (response.statusCode == 200) {
@@ -98,13 +98,13 @@ Future<dynamic> _fetchData(http.Client client, String url) async {
 }
 
 Future<void> listarPlanetas(http.Client client) async {
-  print('--- BUSCANDO PLANETAS ---');
-  var data = await _fetchData(client, '$baseUrl/planets/');
+  print(' BUSCANDO PLANETAS ');
+  var data = await conexion(client, '$baseUrl/planets/');
   if (data != null) {
     List<dynamic> results = data['results'];
     for (var planeta in results.take(10)) {
       // Muestro 5 para que se vea mejor
-      print('🌍Planeta: ${planeta['name']}');
+      print('Planeta: ${planeta['name']}');
     }
   }
 }
@@ -113,8 +113,8 @@ Future<void> listarHabitantesPorPlaneta(
   http.Client client,
   int idPlaneta,
 ) async {
-  print('--- BUSCANDO HABITANTES DEL PLANETA $idPlaneta ---');
-  var planeta = await _fetchData(client, '$baseUrl/planets/$idPlaneta/');
+  print('BUSCANDO HABITANTES DEL PLANETA $idPlaneta ');
+  var planeta = await conexion(client, '$baseUrl/planets/$idPlaneta/');
 
   if (planeta != null) {
     print('Planeta: ${planeta['name']}');
@@ -126,7 +126,7 @@ Future<void> listarHabitantesPorPlaneta(
     }
     //Limitamos a 5 residentes
     for (var url in residentesUrls.take(5)) {
-      var residente = await _fetchData(client, url);
+      var residente = await conexion(client, url);
       if (residente != null) {
         print('👤 Residente: ${residente['name']}');
       }
@@ -135,33 +135,33 @@ Future<void> listarHabitantesPorPlaneta(
 }
 
 Future<void> infoPlanetaDePersonaje(http.Client client, int idPersonaje) async {
-  print('--- BUSCANDO PLANETA DEL PERSONAJE $idPersonaje ---');
-  var personaje = await _fetchData(client, '$baseUrl/people/$idPersonaje/');
+  print('BUSCANDO PLANETA DEL PERSONAJE $idPersonaje');
+  var personaje = await conexion(client, '$baseUrl/people/$idPersonaje/');
 
   if (personaje != null) {
     print('Personaje: ${personaje['name']}');
     if (personaje['homeworld'] != null) {
-      var planeta = await _fetchData(client, personaje['homeworld']);
+      var planeta = await conexion(client, personaje['homeworld']);
       if (planeta != null) {
-        print('🏠 Mundo Natal: ${planeta['name']}');
+        print('Mundo Natal: ${planeta['name']}');
       }
     }
   }
 }
 
 Future<void> infoPeliculaDeVehiculo(http.Client client, int idVehiculo) async {
-  print('--- BUSCANDO PELÍCULA DEL VEHÍCULO $idVehiculo ---');
-  var vehiculo = await _fetchData(client, '$baseUrl/vehicles/$idVehiculo/');
+  print('BUSCANDO PELÍCULA DEL VEHÍCULO $idVehiculo');
+  var vehiculo = await conexion(client, '$baseUrl/vehicles/$idVehiculo/');
 
   if (vehiculo != null) {
     print('Vehículo: ${vehiculo['name']}');
     List<dynamic> filmsUrls = vehiculo['films'];
 
     if (filmsUrls.isNotEmpty) {
-      var pelicula = await _fetchData(client, filmsUrls[0]);
+      var pelicula = await conexion(client, filmsUrls[0]);
       if (pelicula != null) {
         print(
-          '🎬 Película: ${pelicula['title']} (Episodio ${pelicula['episode_id']})',
+          'Película: ${pelicula['title']} (Episodio ${pelicula['episode_id']})',
         );
       }
     } else {
