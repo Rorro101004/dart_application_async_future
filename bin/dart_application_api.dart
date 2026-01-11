@@ -8,7 +8,6 @@ import 'dart:io';
 const String baseUrl = 'https://swapi.tech/api';
 
 void main() async {
-
   final client = RetryClient(http.Client());
   try {
     bool continuar = true;
@@ -97,72 +96,129 @@ Future<dynamic> conexion(http.Client client, String url) async {
 }
 
 Future<void> listarPlanetas(http.Client client) async {
-  print(' BUSCANDO PLANETAS ');
-  var data = await conexion(client, '$baseUrl/planets/');
-  if (data != null) {
-    List<dynamic> results = data['results'];
-    for (var planeta in results.take(10)) {
-      print('Planeta: ${planeta['name']}');
+  print(' BUSCANDO PLANETAS');
+
+  var listaData = await conexion(client, '$baseUrl/planets/');
+
+  if (listaData != null) {
+    List<dynamic> results = listaData['results'];
+
+    for (var itemSimple in results.take(5)) {
+      String urlDetalle = itemSimple['url'];
+      var detalleData = await conexion(client, urlDetalle);
+
+      if (detalleData != null) {
+        var props = detalleData['result']['properties'];
+
+        print('PLANETA: ${props['name']}');
+        print('    Clima: ${props['climate']}');
+        print('    Terreno: ${props['terrain']}');
+        print('    Población: ${props['population']}');
+        print('    Diámetro: ${props['diameter']}');
+        print('    Gravedad: ${props['gravity']}');
+        print('-----------------------------------');
+      }
     }
   }
 }
 
 Future<void> listarHabitantesPorPlaneta(
   http.Client client,
-  int idPlaneta,
+  int idPlanetaBuscado,
 ) async {
-  print('BUSCANDO HABITANTES DEL PLANETA $idPlaneta ');
-  var planeta = await conexion(client, '$baseUrl/planets/$idPlaneta/');
+  print('ESCANEANDO LA GALAXIA BUSCANDO HABITANTES DE ID $idPlanetaBuscado');
+  // 1. Pedimos la lista general de personas (la API nos da las primeras 10 por defecto)
+  var dataPersonas = await conexion(client, '$baseUrl/people/');
 
-  if (planeta != null) {
-    print('Planeta: ${planeta['name']}');
-    List<dynamic> residentesUrls = planeta['residents'];
+  if (dataPersonas != null) {
+    List<dynamic> listaPersonas = dataPersonas['results'];
+    bool encontradoAlguien = false;
+    for (var personaSimple in listaPersonas.take(5)) {
+      var detallePersona = await conexion(client, personaSimple['url']);
 
-    if (residentesUrls.isEmpty) {
-      print('Sin habitantes registrados');
-      return;
-    }
-    for (var url in residentesUrls.take(5)) {
-      var residente = await conexion(client, url);
-      if (residente != null) {
-        print('Residente: ${residente['name']}');
+      if (detallePersona != null) {
+        var props = detallePersona['result']['properties'];
+        String urlMundo = props['homeworld'];
+        if (urlMundo.endsWith('/$idPlanetaBuscado') ||
+            urlMundo.endsWith('/$idPlanetaBuscado/')) {
+          print(' ${props['name']} vive aquí.');
+          print('   - Altura: ${props['height']}');
+          print('   - Peso: ${props['mass']}');
+          print('   - Género: ${props['gender']}');
+          print('   - Color de piel: ${props['skin_color']}');
+          print('   - Cumpleaños: ${props['birth_year']}');
+          print('   - - - - -');
+          encontradoAlguien = true;
+        }
       }
+    }
+
+    if (!encontradoAlguien) {
+      print('No hemos encontrado a nadie de este planeta');
     }
   }
 }
 
 Future<void> infoPlanetaDePersonaje(http.Client client, int idPersonaje) async {
-  print('BUSCANDO PLANETA DEL PERSONAJE $idPersonaje');
-  var personaje = await conexion(client, '$baseUrl/people/$idPersonaje/');
+  print(' BUSCANDO EL MUNDO DE ORIGEN DEL PERSONAJE $idPersonaje ');
 
-  if (personaje != null) {
-    print('Personaje: ${personaje['name']}');
-    if (personaje['homeworld'] != null) {
-      var planeta = await conexion(client, personaje['homeworld']);
-      if (planeta != null) {
-        print('Mundo Natal: ${planeta['name']}');
-      }
+  var dataPersonaje = await conexion(client, '$baseUrl/people/$idPersonaje');
+
+  if (dataPersonaje != null) {
+    var propsPersonaje = dataPersonaje['result']['properties'];
+    String nombre = propsPersonaje['name'];
+    String urlMundo = propsPersonaje['homeworld'];
+
+    print(' Personaje encontrado: $nombre');
+    var dataPlaneta = await conexion(client, urlMundo);
+
+    if (dataPlaneta != null) {
+      var propsPlaneta = dataPlaneta['result']['properties'];
+
+      print('\nMUNDO NATAL: ${propsPlaneta['name']}');
+      print('   Clima: ${propsPlaneta['climate']}');
+      print('   Terreno: ${propsPlaneta['terrain']}');
+      print('   Población: ${propsPlaneta['population']}');
+      print('   Gravedad: ${propsPlaneta['gravity']}');
+      print('   Diámetro: ${propsPlaneta['diameter']}');
+      print('-----------------------------------');
     }
   }
 }
 
 Future<void> infoPeliculaDeVehiculo(http.Client client, int idVehiculo) async {
-  print('BUSCANDO PELÍCULA DEL VEHÍCULO $idVehiculo');
-  var vehiculo = await conexion(client, '$baseUrl/vehicles/$idVehiculo/');
+  print('BUSCANDO PELÍCULAS DEL VEHÍCULO $idVehiculo');
 
-  if (vehiculo != null) {
-    print('Vehículo: ${vehiculo['name']}');
-    List<dynamic> filmsUrls = vehiculo['films'];
+  var dataVehiculo = await conexion(client, '$baseUrl/vehicles/$idVehiculo');
 
-    if (filmsUrls.isNotEmpty) {
-      var pelicula = await conexion(client, filmsUrls[0]);
-      if (pelicula != null) {
-        print(
-          'Película: ${pelicula['title']} (Episodio ${pelicula['episode_id']})',
-        );
-      }
-    } else {
+  if (dataVehiculo != null) {
+    var propsVehiculo = dataVehiculo['result']['properties'];
+    print('Vehículo encontrado: ${propsVehiculo['name']}');
+
+    // 2. Extraemos la LISTA de enlaces a películas
+    List<dynamic> urlsPeliculas = propsVehiculo['films'];
+
+    if (urlsPeliculas.isEmpty) {
       print('No aparece en ninguna película registrada');
+      return;
+    }
+
+    print(
+      'Aparece en ${urlsPeliculas.length} película(s). Descargando datos...',
+    );
+
+    for (var urlFilm in urlsPeliculas) {
+      var dataFilm = await conexion(client, urlFilm);
+
+      if (dataFilm != null) {
+        var propsFilm = dataFilm['result']['properties'];
+
+        print('\n    TÍTULO: ${propsFilm['title']}');
+        print('       Episodio: ${propsFilm['episode_id']}');
+        print('       Director: ${propsFilm['director']}');
+        print('       Productor: ${propsFilm['producer']}');
+        print('       Fecha estreno: ${propsFilm['release_date']}');
+      }
     }
   }
 }
